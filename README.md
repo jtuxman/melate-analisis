@@ -15,7 +15,7 @@ script en Python reproducible que genera reportes, gráficos y combinaciones.
 | `analisis_melate.py` | Script principal: reporte + gráfico + generador de combinaciones |
 | `Melate.csv` · `Revancha.csv` · `Revanchita.csv` | Histórico de sorteos (1984–2026) |
 | `Reporte_Analisis_Melate_2026-05-31.md` | Reporte de ejemplo generado por el script |
-| `evolucion_bolsa.png` | Gráfico de la evolución de la bolsa |
+| `*.png` | 5 gráficos: evolución de la bolsa, frecuencia de números, distribución de sumas, pares/impares y bajos/altos |
 | `requirements.txt` | Dependencias |
 
 ## Instalación
@@ -32,7 +32,7 @@ Dependencias: `pandas` y `numpy` (obligatorias); `matplotlib` (para `--grafico`)
 ```bash
 python3 analisis_melate.py                      # reporte completo en pantalla
 python3 analisis_melate.py -o reporte.md        # guarda el reporte en Markdown
-python3 analisis_melate.py --grafico            # además genera evolucion_bolsa.png
+python3 analisis_melate.py --grafico            # genera los 5 gráficos PNG
 python3 analisis_melate.py --combinaciones 10   # 10 sextetas que respetan los patrones
 python3 analisis_melate.py --juego Revanchita   # analiza solo un juego
 python3 analisis_melate.py --help               # todas las opciones
@@ -57,7 +57,28 @@ los sorteos nuevos y volver a ejecutarlo.
 3. **Récord de bolsa real:** $639.5 millones (Melate, julio 2013), corregido por la
    reconversión monetaria de 1993.
 
+## Gráficos
+
+El comando `python3 analisis_melate.py --grafico` genera estos cinco gráficos (los de
+números, sobre el formato estable 1–56 desde 2007):
+
+**Evolución de la bolsa**
+
 ![Evolución de la bolsa](evolucion_bolsa.png)
+
+**Frecuencia de cada número** — todas las barras oscilan alrededor del valor esperado por
+azar; el χ² confirma que no hay sesgo.
+
+![Frecuencia de los números](frecuencia_numeros.png)
+
+**Distribución de la suma de los 6 números** — campana centrada en ~170.
+
+![Distribución de sumas](distribucion_sumas.png)
+
+**Pares/impares y bajos/altos por sorteo** — ambos se concentran en el reparto 3–3.
+
+![Pares e impares](pares_impares.png)
+![Bajos y altos](bajos_altos.png)
 
 ## Notas sobre los datos
 

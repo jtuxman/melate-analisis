@@ -13,7 +13,7 @@ Uso:
     python3 analisis_melate.py --juego Melate   # analiza solo un juego
     python3 analisis_melate.py --dir /ruta/csv  # carpeta donde están los CSV
     python3 analisis_melate.py --desde 2010-01-01   # cambia el inicio del periodo
-    python3 analisis_melate.py --grafico        # además genera evolucion_bolsa.png
+    python3 analisis_melate.py --grafico        # genera los 5 gráficos PNG
     python3 analisis_melate.py --combinaciones 10   # 10 sextetas que respetan los patrones
 
 Requisitos: Python 3.8+, pandas, numpy.
@@ -233,56 +233,68 @@ def seccion_bolsa(df: pd.DataFrame, nombre: str) -> list[str]:
 
 
 # --------------------------------------------------------------------------- #
-# Gráfico de evolución de la bolsa (los tres juegos; requiere matplotlib)
+# Gráficos (requieren matplotlib). Todos comparan los tres juegos.
 # --------------------------------------------------------------------------- #
-def generar_grafico(carpeta: Path, ruta_png: str, desde_serie: str = "2009-01-01") -> None:
-    """Guarda un PNG con la evolución de la bolsa: serie temporal de los tres juegos
-    (patrón acumulación→reinicio) y máximo anual de Melate (tendencia de fondo)."""
+COLORES_JUEGO = {"Melate": "#1f77b4", "Revancha": "#d62728", "Revanchita": "#2ca02c"}
+
+
+def generar_graficos(carpeta: Path, salida_dir: str, desde: str) -> None:
+    """Genera todos los PNG de análisis en `salida_dir`: evolución de la bolsa,
+    frecuencia de cada número, distribución de sumas, y distribuciones de
+    pares/impares y bajos/altos. Requiere matplotlib."""
     try:
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
-        from matplotlib.ticker import FuncFormatter
     except ImportError:
-        print("⚠ matplotlib no está instalado; se omite el gráfico. "
+        print("⚠ matplotlib no está instalado; se omiten los gráficos. "
               "Instálalo con:  pip install matplotlib")
         return
 
-    colores = {"Melate": "#1f77b4", "Revancha": "#d62728", "Revanchita": "#2ca02c"}
+    salida = Path(salida_dir)
+    salida.mkdir(parents=True, exist_ok=True)
+    datos = {nombre: cargar(cfg, carpeta) for nombre, cfg in JUEGOS.items()}
+
+    _g_bolsa(plt, datos, salida / "evolucion_bolsa.png")
+    _g_frecuencia(plt, datos, desde, salida / "frecuencia_numeros.png")
+    _g_sumas(plt, datos, desde, salida / "distribucion_sumas.png")
+    _g_composicion(plt, datos, desde, "pares", salida / "pares_impares.png")
+    _g_composicion(plt, datos, desde, "bajos", salida / "bajos_altos.png")
+    print(f"5 gráficos guardados en: {salida}/  "
+          "(evolucion_bolsa, frecuencia_numeros, distribucion_sumas, pares_impares, bajos_altos)")
+
+
+def _g_bolsa(plt, datos, ruta, desde_serie="2009-01-01") -> None:
+    """Serie temporal de la bolsa (patrón acumulación→reinicio) + máximo anual de Melate."""
+    from matplotlib.ticker import FuncFormatter
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 9),
                                    gridspec_kw={"height_ratios": [2.3, 1]})
-
-    # Panel 1: serie temporal de los tres juegos.
-    cache = {}
-    for nombre, cfg in JUEGOS.items():
-        df = cargar(cfg, carpeta).dropna(subset=["BOLSA_N"])
-        cache[nombre] = df
-        if df.empty:
+    for nombre, df in datos.items():
+        d = df.dropna(subset=["BOLSA_N"])
+        if d.empty:
             continue
-        color = colores.get(nombre)
-        d = df[df["FECHA"] >= pd.Timestamp(desde_serie)]
-        ax1.plot(d["FECHA"], d["BOLSA_N"] / MILLON, color=color, lw=0.9, label=nombre)
-        rec = df.loc[df["BOLSA_N"].idxmax()]
+        color = COLORES_JUEGO.get(nombre)
+        dd = d[d["FECHA"] >= pd.Timestamp(desde_serie)]
+        ax1.plot(dd["FECHA"], dd["BOLSA_N"] / MILLON, color=color, lw=0.9, label=nombre)
+        rec = d.loc[d["BOLSA_N"].idxmax()]
         ax1.scatter([rec["FECHA"]], [rec["BOLSA_N"] / MILLON], color=color, s=45,
                     zorder=5, edgecolor="white", linewidth=0.8)
         ax1.annotate(f"récord ${rec['BOLSA_N'] / MILLON:,.0f} M\n{rec['FECHA']:%b %Y}",
                      (rec["FECHA"], rec["BOLSA_N"] / MILLON), textcoords="offset points",
                      xytext=(6, 6), fontsize=8, color=color, fontweight="bold")
-
-    ax1.set_title(f"Evolución de la bolsa — Melate, Revancha y Revanchita "
-                  f"(pesos de hoy, desde {desde_serie[:4]})", fontsize=13, fontweight="bold")
+    ax1.set_title("Evolución de la bolsa — Melate, Revancha y Revanchita (pesos de hoy)",
+                  fontsize=13, fontweight="bold")
     ax1.set_ylabel("Bolsa acumulada (millones $)")
     ax1.legend(loc="upper left", framealpha=0.9)
     ax1.grid(alpha=0.25)
     ax1.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{x:,.0f}"))
     ax1.set_ylim(bottom=0)
-
-    # Panel 2: máximo anual de Melate (deja ver la tendencia que los dientes esconden).
-    dfm = cache.get("Melate")
-    if dfm is not None and not dfm.empty:
+    dfm = datos.get("Melate")
+    if dfm is not None:
+        dfm = dfm.dropna(subset=["BOLSA_N"])
         maxan = (dfm.groupby("AÑO")["BOLSA_N"].max() / MILLON)
         maxan = maxan[maxan.index >= 1995]
-        ax2.bar(maxan.index, maxan.values, color=colores["Melate"], alpha=0.85)
+        ax2.bar(maxan.index, maxan.values, color=COLORES_JUEGO["Melate"], alpha=0.85)
         ax2.axvspan(2006.5, 2007.5, color="orange", alpha=0.2)
         ax2.annotate("formato 1–56\n(2007)", (2007, maxan.max() * 0.9), fontsize=8,
                      ha="center", color="darkorange")
@@ -290,11 +302,101 @@ def generar_grafico(carpeta: Path, ruta_png: str, desde_serie: str = "2009-01-01
         ax2.set_ylabel("Máximo (millones $)")
         ax2.set_xlabel("Año")
         ax2.grid(alpha=0.25, axis="y")
-
     fig.tight_layout()
-    fig.savefig(ruta_png, dpi=120, bbox_inches="tight")
+    fig.savefig(ruta, dpi=120, bbox_inches="tight")
     plt.close(fig)
-    print(f"Gráfico guardado en: {ruta_png}")
+
+
+def _g_frecuencia(plt, datos, desde, ruta) -> None:
+    """Un panel por juego: barras con las veces que ha salido cada número (1–56),
+    con la línea del valor esperado por azar y el χ² en el título."""
+    fig, axes = plt.subplots(len(datos), 1, figsize=(14, 3.2 * len(datos)), sharex=True)
+    axes = np.atleast_1d(axes)
+    for ax, (nombre, df) in zip(axes, datos.items()):
+        cols = JUEGOS[nombre]["nums"]
+        sub = df[df["FECHA"] >= pd.Timestamp(desde)]
+        c = Counter(sub[cols].to_numpy().ravel())
+        freq = [c.get(i, 0) for i in range(1, N_BOMBO + 1)]
+        n = len(sub)
+        esperado = n * K_SORTEO / N_BOMBO if n else 0
+        chi2 = sum((f - esperado) ** 2 / esperado for f in freq) if esperado else 0
+        ax.bar(range(1, N_BOMBO + 1), freq, color=COLORES_JUEGO.get(nombre), alpha=0.85)
+        if esperado:
+            ax.axhline(esperado, color="black", ls="--", lw=1)
+            ax.annotate(f"esperado por azar ≈ {esperado:.0f}", (N_BOMBO, esperado),
+                        fontsize=8, va="bottom", ha="right")
+        veredicto = "compatible con azar" if chi2 < CHI2_CRIT_55 else "posible sesgo"
+        ax.set_title(f"{nombre} — frecuencia de cada número ({n:,} sorteos desde {desde[:4]} · "
+                     f"χ²={chi2:.0f} → {veredicto})", fontsize=11)
+        ax.set_ylabel("Veces que salió")
+        ax.set_xlim(0.5, N_BOMBO + 0.5)
+        ax.grid(alpha=0.2, axis="y")
+    axes[-1].set_xlabel("Número")
+    axes[-1].set_xticks(range(5, N_BOMBO + 1, 5))
+    fig.suptitle("Distribución de frecuencia de los números (formato estable 1–56)",
+                 fontsize=13, fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(ruta, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _g_sumas(plt, datos, desde, ruta) -> None:
+    """Histograma de la suma de los números ganadores por sorteo (los tres juegos)."""
+    fig, ax = plt.subplots(figsize=(12, 6))
+    bins = range(40, 305, 8)
+    medias = []
+    for nombre, df in datos.items():
+        cols = JUEGOS[nombre]["nums"]
+        sumas = df[df["FECHA"] >= pd.Timestamp(desde)][cols].to_numpy().sum(axis=1)
+        if not len(sumas):
+            continue
+        ax.hist(sumas, bins=bins, histtype="step", lw=1.8, color=COLORES_JUEGO.get(nombre),
+                label=f"{nombre} (media {sumas.mean():.0f})")
+        medias.append(sumas.mean())
+    if medias:
+        ax.axvline(float(np.mean(medias)), color="gray", ls="--", lw=1,
+                   label=f"media ≈ {np.mean(medias):.0f}")
+    ax.set_title(f"Distribución de la suma de los {K_SORTEO} números ganadores (desde {desde[:4]})",
+                 fontsize=13, fontweight="bold")
+    ax.set_xlabel(f"Suma de los {K_SORTEO} números")
+    ax.set_ylabel("Número de sorteos")
+    ax.legend()
+    ax.grid(alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(ruta, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _g_composicion(plt, datos, desde, modo, ruta) -> None:
+    """Barras agrupadas: cuántas veces (en %) salieron k pares (o k bajos) por sorteo."""
+    cats = list(range(K_SORTEO + 1))           # 0..6
+    juegos = list(datos.keys())
+    ancho = 0.8 / len(juegos)
+    fig, ax = plt.subplots(figsize=(11, 6))
+    for i, nombre in enumerate(juegos):
+        cols = JUEGOS[nombre]["nums"]
+        mat = datos[nombre][datos[nombre]["FECHA"] >= pd.Timestamp(desde)][cols].to_numpy()
+        if not len(mat):
+            continue
+        conteo = (mat % 2 == 0).sum(axis=1) if modo == "pares" else (mat <= N_BOMBO // 2).sum(axis=1)
+        pct = [100 * np.mean(conteo == k) for k in cats]
+        x = [c + (i - (len(juegos) - 1) / 2) * ancho for c in cats]
+        ax.bar(x, pct, width=ancho, color=COLORES_JUEGO.get(nombre), label=nombre, alpha=0.9)
+    if modo == "pares":
+        ax.set_title(f"¿Cuántos PARES salen por sorteo? (de {K_SORTEO} números, desde {desde[:4]})",
+                     fontsize=13, fontweight="bold")
+        ax.set_xlabel("Cantidad de números pares en el sorteo")
+    else:
+        ax.set_title(f"¿Cuántos BAJOS (1–{N_BOMBO // 2}) salen por sorteo? (desde {desde[:4]})",
+                     fontsize=13, fontweight="bold")
+        ax.set_xlabel(f"Cantidad de números bajos (1–{N_BOMBO // 2}) en el sorteo")
+    ax.set_ylabel("% de sorteos")
+    ax.set_xticks(cats)
+    ax.legend()
+    ax.grid(alpha=0.25, axis="y")
+    fig.tight_layout()
+    fig.savefig(ruta, dpi=120, bbox_inches="tight")
+    plt.close(fig)
 
 
 # --------------------------------------------------------------------------- #
@@ -407,10 +509,11 @@ def main() -> None:
     ap.add_argument("--desde", default=DESDE_DEFAULT,
                     help=f"Fecha inicial (YYYY-MM-DD) para frecuencias (default {DESDE_DEFAULT}).")
     ap.add_argument("--juego", help="Analizar solo un juego: Melate | Revancha | Revanchita.")
-    ap.add_argument("--grafico", nargs="?", const="evolucion_bolsa.png", default=None,
-                    metavar="ARCHIVO.png",
-                    help="Genera un PNG con la evolución de la bolsa (los 3 juegos siempre). "
-                         "Default: evolucion_bolsa.png. Requiere matplotlib.")
+    ap.add_argument("--grafico", "--graficos", nargs="?", const=".", default=None,
+                    metavar="DIR", dest="grafico",
+                    help="Genera los 5 gráficos PNG (bolsa, frecuencia de números, sumas, "
+                         "pares/impares, bajos/altos) en el directorio indicado (default: "
+                         "carpeta actual). Requiere matplotlib.")
     ap.add_argument("--combinaciones", type=int, metavar="N",
                     help="Genera N sextetas que respetan los patrones del histórico "
                          "(suma, pares/impares, bajos/altos). NO mejora la probabilidad de ganar.")
@@ -449,7 +552,7 @@ def main() -> None:
             print(reporte)
 
     if args.grafico:
-        generar_grafico(carpeta, args.grafico)
+        generar_graficos(carpeta, args.grafico, args.desde)
 
 
 if __name__ == "__main__":
