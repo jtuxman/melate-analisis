@@ -1,0 +1,6 @@
+pandas>=2.0
+numpy>=1.24
+matplotlib>=3.5
+
+# Opcional (solo añade el p-value del test chi-cuadrado en el reporte):
+# scipy>=1.10
