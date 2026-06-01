@@ -8,13 +8,12 @@ bolsa) a partir de los CSV oficiales. Pensado para volver a ejecutarse cada vez 
 actualices los archivos con sorteos nuevos: ordena por concurso y recalcula todo solo.
 
 Uso:
-    python3 analisis_melate.py                  # imprime el reporte en la terminal
+    python3 analisis_melate.py                  # sin opciones: muestra la ayuda
+    python3 analisis_melate.py --reporte        # imprime el reporte en la terminal
     python3 analisis_melate.py -o reporte.md    # guarda el reporte en un archivo .md
-    python3 analisis_melate.py --juego Melate   # analiza solo un juego
-    python3 analisis_melate.py --dir /ruta/csv  # carpeta donde están los CSV
-    python3 analisis_melate.py --desde 2010-01-01   # cambia el inicio del periodo
     python3 analisis_melate.py --grafico        # genera los 5 gráficos PNG
     python3 analisis_melate.py --combinaciones 10   # 10 sextetas que respetan los patrones
+    python3 analisis_melate.py --reporte --grafico --juego Melate   # opciones combinables
 
 Requisitos: Python 3.8+, pandas, numpy.
 Opcionales: scipy (añade el p-value del χ²), matplotlib (necesario solo para --grafico).
@@ -510,7 +509,15 @@ def construir_reporte(carpeta: Path, desde: str, solo_juego: str | None = None) 
 
 def main() -> None:
     ap = argparse.ArgumentParser(
-        description="Análisis estadístico de la lotería Melate / Revancha / Revanchita.")
+        description="Análisis estadístico de la lotería Melate / Revancha / Revanchita.",
+        epilog="Ejemplos:\n"
+               "  python3 analisis_melate.py --reporte\n"
+               "  python3 analisis_melate.py --grafico\n"
+               "  python3 analisis_melate.py --combinaciones 10\n"
+               "  python3 analisis_melate.py --reporte --grafico --juego Melate\n",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("-r", "--reporte", action="store_true",
+                    help="Imprime el reporte completo (resumen, frecuencias, patrones, bolsa).")
     ap.add_argument("--dir", default=None,
                     help="Carpeta con los CSV (default: la carpeta de este script).")
     ap.add_argument("-o", "--output",
@@ -529,6 +536,11 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=None,
                     help="Semilla aleatoria para reproducir las mismas combinaciones.")
     args = ap.parse_args()
+
+    # Sin ninguna acción solicitada, mostrar la ayuda con todas las opciones.
+    if not (args.reporte or args.output or args.grafico or args.combinaciones):
+        ap.print_help()
+        return
 
     carpeta = Path(args.dir).expanduser().resolve() if args.dir else Path(__file__).resolve().parent
 
@@ -551,8 +563,8 @@ def main() -> None:
         print("   teniendo 1 entre 32,468,436 de acertar. Solo evitan combinaciones atípicas.")
         print("   Los mismos 6 números sirven para Melate, Revancha y Revanchita.\n")
 
-    # Reporte: se imprime por defecto; con -o se guarda; se omite si solo se pidieron combinaciones.
-    if args.output or not args.combinaciones:
+    # Reporte: con --reporte se imprime en pantalla; con -o se guarda en archivo.
+    if args.reporte or args.output:
         reporte = construir_reporte(carpeta, args.desde, args.juego)
         if args.output:
             Path(args.output).write_text(reporte, encoding="utf-8")

@@ -30,12 +30,12 @@ Dependencias: `pandas` y `numpy` (obligatorias); `matplotlib` (para `--grafico`)
 ## Uso
 
 ```bash
-python3 analisis_melate.py                      # reporte completo en pantalla
+python3 analisis_melate.py                      # sin opciones: muestra la ayuda
+python3 analisis_melate.py --reporte            # reporte completo en pantalla
 python3 analisis_melate.py -o reporte.md        # guarda el reporte en Markdown
 python3 analisis_melate.py --grafico            # genera los 5 gráficos PNG
 python3 analisis_melate.py --combinaciones 10   # 10 sextetas que respetan los patrones
-python3 analisis_melate.py --juego Revanchita   # analiza solo un juego
-python3 analisis_melate.py --help               # todas las opciones
+python3 analisis_melate.py --reporte --juego Revanchita   # analiza solo un juego
 ```
 
 El script ordena por concurso y recalcula todo solo: basta con actualizar los CSV con
