@@ -368,7 +368,9 @@ def _g_sumas(plt, datos, desde, ruta) -> None:
 
 
 def _g_composicion(plt, datos, desde, modo, ruta) -> None:
-    """Barras agrupadas: cuántas veces (en %) salieron k pares (o k bajos) por sorteo."""
+    """Barras agrupadas: cuántas veces (en %) salieron k pares (o k bajos) por sorteo.
+    El eje X superior muestra el complemento (impares / altos = 6 − k), que es la
+    misma información reflejada: por eso no hace falta un gráfico aparte para él."""
     cats = list(range(K_SORTEO + 1))           # 0..6
     juegos = list(datos.keys())
     ancho = 0.8 / len(juegos)
@@ -383,16 +385,23 @@ def _g_composicion(plt, datos, desde, modo, ruta) -> None:
         x = [c + (i - (len(juegos) - 1) / 2) * ancho for c in cats]
         ax.bar(x, pct, width=ancho, color=COLORES_JUEGO.get(nombre), label=nombre, alpha=0.9)
     if modo == "pares":
-        ax.set_title(f"¿Cuántos PARES salen por sorteo? (de {K_SORTEO} números, desde {desde[:4]})",
+        ax.set_title(f"¿Cuántos PARES / IMPARES salen por sorteo? (de {K_SORTEO}, desde {desde[:4]})",
                      fontsize=13, fontweight="bold")
-        ax.set_xlabel("Cantidad de números pares en el sorteo")
+        ax.set_xlabel("Números PARES en el sorteo")
+        compl_label = "Números IMPARES en el sorteo"
     else:
-        ax.set_title(f"¿Cuántos BAJOS (1–{N_BOMBO // 2}) salen por sorteo? (desde {desde[:4]})",
+        ax.set_title(f"¿Cuántos BAJOS / ALTOS salen por sorteo? (de {K_SORTEO}, desde {desde[:4]})",
                      fontsize=13, fontweight="bold")
-        ax.set_xlabel(f"Cantidad de números bajos (1–{N_BOMBO // 2}) en el sorteo")
+        ax.set_xlabel(f"Números BAJOS (1–{N_BOMBO // 2}) en el sorteo")
+        compl_label = f"Números ALTOS ({N_BOMBO // 2 + 1}–{N_BOMBO}) en el sorteo"
     ax.set_ylabel("% de sorteos")
     ax.set_xticks(cats)
-    ax.legend()
+    # Eje X superior: el complemento (6 − k), p. ej. "0 bajos" = "6 altos".
+    secax = ax.secondary_xaxis("top")
+    secax.set_xticks(cats)
+    secax.set_xticklabels([str(K_SORTEO - k) for k in cats])
+    secax.set_xlabel(compl_label)
+    ax.legend(loc="upper right")
     ax.grid(alpha=0.25, axis="y")
     fig.tight_layout()
     fig.savefig(ruta, dpi=120, bbox_inches="tight")
