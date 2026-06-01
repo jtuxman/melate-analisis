@@ -1,5 +1,7 @@
 # Análisis de la Lotería Melate 🎲
 
+[![Regenerar gráficos](https://github.com/jtuxman/melate-analisis/actions/workflows/regenerar-graficos.yml/badge.svg)](https://github.com/jtuxman/melate-analisis/actions/workflows/regenerar-graficos.yml)
+
 Análisis estadístico del histórico completo de la lotería mexicana **Melate** y sus
 modalidades **Revancha** y **Revanchita** (Pronósticos / Lotería Nacional), con un
 script en Python reproducible que genera reportes, gráficos y combinaciones.
@@ -87,6 +89,13 @@ azar; el χ² confirma que no hay sesgo.
 - **`BOLSA = 0`** se trata como dato faltante, no como bolsa real.
 - **Estructura de los CSV:** `NPRODUCTO, CONCURSO, [6–7 números], BOLSA, FECHA`
   (fecha en formato `dd/mm/aaaa`).
+
+## Automatización
+
+Un GitHub Action ([`regenerar-graficos.yml`](.github/workflows/regenerar-graficos.yml))
+regenera los 5 gráficos automáticamente cuando se actualizan los CSV o el script, y
+commitea los PNG actualizados. También puede lanzarse a mano desde la pestaña **Actions**
+del repositorio.
 
 ## Licencia
 
